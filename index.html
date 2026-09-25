@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SynkCard — Wireless E-Paper Display Controller</title>
+  <meta name="description" content="Responsive hardware companion dashboard for SynkCard low-power customizable e-paper display with Jetson Orin synchronization.">
+  <link rel="stylesheet" href="./src/styles/index.css">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- 1. Hardware Status Header -->
+    <header class="hardware-header" id="header">
+      <div class="brand-section">
+        <div class="brand-badge">
+          <div class="brand-icon">S</div>
+          <div>
+            <div class="brand-title">SynkCard</div>
+          </div>
+        </div>
+        <div class="brand-sub">EPD-4.3</div>
+      </div>
+
+      <div class="header-status-pill">
+        <div class="status-indicator" id="deviceStatusPill" title="Click to view device link settings">
+          <span class="led-dot pulsing offline" id="statusLed"></span>
+          <span id="statusText">CONNECTING...</span>
+        </div>
+
+        <div class="battery-pill" id="batteryPill" title="Battery Level">
+          <div class="battery-icon">
+            <div class="battery-level-bar" id="batteryBar" style="width: 88%;"></div>
+          </div>
+          <span id="batteryPct">88%</span>
+        </div>
+
+        <button class="icon-btn" id="openSettingsBtn" title="Jetson Network Settings" aria-label="Settings">
+          ⚙️
+        </button>
+      </div>
+    </header>
+
+    <!-- 2. Mode Selector (Segmented Hardware Switch) -->
+    <nav class="mode-nav-container" aria-label="Display Mode Selector">
+      <div class="mode-selector" role="tablist">
+        <button class="mode-tab active" id="tabBtnText" data-mode="text" role="tab" aria-selected="true">
+          <span class="tab-icon">📝</span>
+          <span>Note</span>
+        </button>
+        <button class="mode-tab" id="tabBtnImage" data-mode="image" role="tab" aria-selected="false">
+          <span class="tab-icon">🖼️</span>
+          <span>Image</span>
+        </button>
+        <button class="mode-tab" id="tabBtnPixel" data-mode="pixel" role="tab" aria-selected="false">
+          <span class="tab-icon">👾</span>
+          <span>Pixel</span>
+        </button>
+        <button class="mode-tab" id="tabBtnProfile" data-mode="profile" role="tab" aria-selected="false">
+          <span class="tab-icon">📇</span>
+          <span>Profile</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- 3. Main Viewport (Preview + Mode Controls) -->
+    <main class="main-viewport">
+
+      <!-- Simulated E-Paper Enclosure (600x800 native canvas) -->
+      <section class="epaper-enclosure" aria-label="Simulated e-Paper Display">
+        <div class="epaper-bezel" id="epaperBezel">
+          <div class="bezel-top-bar">
+            <div class="bezel-screw"></div>
+            <span>600×800 • MONOCHROME 1-BIT</span>
+            <div class="bezel-screw"></div>
+          </div>
+
+          <div class="canvas-wrapper">
+            <canvas id="epaperCanvas" width="600" height="800"></canvas>
+          </div>
+
+          <div class="bezel-bottom-bar">
+            <div class="bezel-led" id="bezelLed"></div>
+            <div class="bezel-logo">SYNKCARD WIRELESS</div>
+            <div class="bezel-spec">JETSON ORIN LINK</div>
+          </div>
+        </div>
+
+        <!-- Quick actions below bezel -->
+        <div class="preview-quick-actions">
+          <button class="quick-btn" id="refreshScreenBtn" title="Simulate physical electrophoretic waveform refresh">
+            <span>⚡</span>
+            <span>Refresh Flash</span>
+          </button>
+          <button class="quick-btn" id="downloadImageBtn" title="Download 600x800 monochrome PNG">
+            <span>⬇️</span>
+            <span>Export PNG</span>
+          </button>
+          <button class="quick-btn" id="toggleAudioBtn" title="Toggle tactile mechanical click">
+            <span id="audioIcon">🔊</span>
+            <span id="audioLabel">Sound On</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Mode Controls Container -->
+      <section class="controls-card" id="controlsCard">
+
+        <!-- ================= TEXT / NOTE MODE ================= -->
+        <div class="mode-panel" id="panelText">
+          <div class="panel-title-row">
+            <div class="panel-title">
+              <span>📝</span> Note & Announcement
+            </div>
+            <span class="panel-badge">POST /api/display/text</span>
+          </div>
+
+          <!-- Presets -->
+          <div class="form-group">
+            <label class="form-label">Templates</label>
+            <div class="presets-scroller">
+              <button class="preset-chip" data-text-preset="project_demo">🎓 Project Demo</button>
+              <button class="preset-chip" data-text-preset="badge_busy">⛔ Do Not Disturb</button>
+              <button class="preset-chip" data-text-preset="room_schedule">📅 Lab Schedule</button>
+              <button class="preset-chip" data-text-preset="quote">💡 Motivation Quote</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="textTitle">Header Title</label>
+            <input type="text" id="textTitle" class="form-input" value="SYNKCARD v1.2" placeholder="e.g. LAB 304 - EMBEDDED SYS">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="textSubtitle">Subtitle / Tag</label>
+            <input type="text" id="textSubtitle" class="form-input" value="Low-Power Wireless E-Paper System" placeholder="e.g. FINAL EVALUATION DEMO">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="textBody">Note Content</label>
+            <textarea id="textBody" class="form-textarea" rows="4" placeholder="Enter notes or checklist..."></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Layout Style</label>
+              <select id="textLayout" class="form-select">
+                <option value="tech">Technical Grid</option>
+                <option value="banner">Inverted Banner</option>
+                <option value="card">Hardware Card</option>
+                <option value="minimal">Minimal Classic</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Typography</label>
+              <select id="textFont" class="form-select">
+                <option value="mono">JetBrains Mono</option>
+                <option value="sans">Clean Sans</option>
+                <option value="serif">Classic Serif</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Alignment</label>
+              <div class="btn-toggle-group">
+                <button class="toggle-option active" data-align="left" id="alignLeftBtn">Left</button>
+                <button class="toggle-option" data-align="center" id="alignCenterBtn">Center</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Footer Stamp</label>
+              <input type="text" id="textFooter" class="form-input" value="Jetson Orin • 172.16.104.57">
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= IMAGE UPLOAD MODE ================= -->
+        <div class="mode-panel" id="panelImage" style="display: none;">
+          <div class="panel-title-row">
+            <div class="panel-title">
+              <span>🖼️</span> Image Processing & Dithering
+            </div>
+            <span class="panel-badge">POST /api/display/image</span>
+          </div>
+
+          <!-- Presets -->
+          <div class="form-group">
+            <label class="form-label">Sample Graphics</label>
+            <div class="presets-scroller">
+              <button class="preset-chip" data-img-preset="hardware">⚡ Circuit Schematic</button>
+              <button class="preset-chip" data-img-preset="emblem">🏛️ College Crest</button>
+              <button class="preset-chip" data-img-preset="geometric">🌀 Geometric Pattern</button>
+            </div>
+          </div>
+
+          <!-- File Upload Dropzone -->
+          <div class="dropzone-box" id="imageDropzone">
+            <input type="file" id="imageFileInput" class="hidden-file-input" accept="image/*" capture="environment">
+            <div class="dropzone-icon">📷</div>
+            <div class="dropzone-text">Tap to take photo or choose image</div>
+            <div class="dropzone-hint">Converts to 600×800 e-paper bitmap in real-time</div>
+          </div>
+
+          <!-- Dithering Algorithm -->
+          <div class="form-group">
+            <label class="form-label">E-Paper Dithering Engine</label>
+            <select id="ditherAlgoSelect" class="form-select">
+              <option value="floyd">Floyd-Steinberg (Error Diffusion)</option>
+              <option value="atkinson">Atkinson (Apple/Mac Classic)</option>
+              <option value="bayer">Bayer 4x4 (Ordered Halftone)</option>
+              <option value="threshold">Binary Threshold (High Contrast)</option>
+            </select>
+          </div>
+
+          <!-- Sliders -->
+          <div class="form-group">
+            <label class="form-label">
+              <span>Contrast</span>
+              <span id="contrastVal" class="range-val">+15%</span>
+            </label>
+            <div class="range-slider-wrapper">
+              <input type="range" id="contrastSlider" class="range-slider" min="-80" max="80" value="15">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <span>Brightness</span>
+              <span id="brightnessVal" class="range-val">0</span>
+            </label>
+            <div class="range-slider-wrapper">
+              <input type="range" id="brightnessSlider" class="range-slider" min="-80" max="80" value="0">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Scale Mode</label>
+              <div class="btn-toggle-group">
+                <button class="toggle-option active" id="scaleFitBtn" data-scale="fit">Fit</button>
+                <button class="toggle-option" id="scaleCoverBtn" data-scale="cover">Fill/Cover</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Invert Colors</label>
+              <div class="btn-toggle-group">
+                <button class="toggle-option active" id="invertOffBtn" data-invert="false">Normal</button>
+                <button class="toggle-option" id="invertOnBtn" data-invert="true">Invert</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="imageCaption">Bottom Caption (Optional)</label>
+            <input type="text" id="imageCaption" class="form-input" placeholder="e.g. SYSTEM ARCHITECTURE DIAGRAM">
+          </div>
+        </div>
+
+        <!-- ================= PIXEL-ART MODE ================= -->
+        <div class="mode-panel" id="panelPixel" style="display: none;">
+          <div class="panel-title-row">
+            <div class="panel-title">
+              <span>👾</span> Pixel-Art Editor
+            </div>
+            <span class="panel-badge">POST /api/display/image</span>
+          </div>
+
+          <!-- Presets -->
+          <div class="form-group">
+            <label class="form-label">Glyph Presets</label>
+            <div class="presets-scroller">
+              <button class="preset-chip" data-pixel-preset="chip">💾 Microchip</button>
+              <button class="preset-chip" data-pixel-preset="wifi">📶 Wi-Fi Signal</button>
+              <button class="preset-chip" data-pixel-preset="heart">❤️ Heart</button>
+              <button class="preset-chip" data-pixel-preset="gameboy">🕹️ Gameboy</button>
+            </div>
+          </div>
+
+          <!-- Interactive Drawing Area -->
+          <div class="pixel-editor-container">
+            <div class="pixel-canvas-frame">
+              <canvas id="pixelCanvas" width="260" height="260"></canvas>
+            </div>
+
+            <!-- Drawing Tools -->
+            <div class="pixel-toolbar">
+              <button class="tool-btn active" id="pixelPencilBtn" data-tool="pencil">
+                ✏️ Pencil
+              </button>
+              <button class="tool-btn" id="pixelEraserBtn" data-tool="eraser">
+                🧹 Eraser
+              </button>
+              <button class="tool-btn" id="pixelFillBtn" data-tool="fill">
+                🪣 Bucket
+              </button>
+              <button class="tool-btn" id="pixelInvertBtn">
+                🔄 Invert
+              </button>
+              <button class="tool-btn" id="pixelClearBtn">
+                🗑️ Clear
+              </button>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Grid Resolution</label>
+              <select id="pixelGridSizeSelect" class="form-select">
+                <option value="16">16 × 16</option>
+                <option value="24" selected>24 × 24</option>
+                <option value="32">32 × 32</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="pixelLabelInput">Badge Label</label>
+              <input type="text" id="pixelLabelInput" class="form-input" value="MICROCHIP">
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= DIGITAL PROFILE MODE ================= -->
+        <div class="mode-panel" id="panelProfile" style="display: none;">
+          <div class="panel-title-row">
+            <div class="panel-title">
+              <span>📇</span> Digital Badge & QR Code
+            </div>
+            <span class="panel-badge">POST /api/profile</span>
+          </div>
+
+          <!-- Presets -->
+          <div class="form-group">
+            <label class="form-label">Badge Presets</label>
+            <div class="presets-scroller">
+              <button class="preset-chip" data-profile-preset="student_badge">🎓 Project Lead</button>
+              <button class="preset-chip" data-profile-preset="conf_speaker">🎙️ Speaker Badge</button>
+              <button class="preset-chip" data-profile-preset="vcard_clean">💼 Clean vCard</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="profileName">Full Name</label>
+            <input type="text" id="profileName" class="form-input" value="ALEX RIVERA" placeholder="e.g. ALEX RIVERA">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="profileRole">Title / Role</label>
+              <input type="text" id="profileRole" class="form-input" value="SYSTEMS ARCHITECT & EMBEDDED DEV">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="profileOrg">College / Org</label>
+              <input type="text" id="profileOrg" class="form-input" value="DEPT. OF COMPUTER SCIENCE & ENG">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="profileBio">Tagline / Bio</label>
+            <textarea id="profileBio" class="form-textarea" rows="2">SynkCard: Ultra-Low-Power Wireless E-Paper Systems</textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="profileQR">
+              <span>QR Code URL / Target</span>
+              <span style="color: var(--accent-orange);">Live Generated</span>
+            </label>
+            <input type="text" id="profileQR" class="form-input" value="https://github.com/Kind-sketch/eink-emulator" placeholder="https://github.com/your-repo">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Badge Layout Template</label>
+            <select id="profileLayout" class="form-select">
+              <option value="badge">Conference Badge (Avatar + Info + Big QR)</option>
+              <option value="idcard">College Student ID (Split Photo + QR)</option>
+              <option value="minimal">Minimalist Business Card</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Collapsible Diagnostics / Hardware Link Drawer -->
+        <div class="drawer-toggle-row">
+          <button class="drawer-toggle-btn" id="toggleTerminalBtn">
+            <span>📡 Jetson Orin Diagnostics & Live Logs</span>
+            <span id="drawerArrow">▼</span>
+          </button>
+          <div class="terminal-drawer" id="terminalDrawer">
+            <div class="terminal-header">
+              <span>LIVE TRANSMISSION LOGS</span>
+              <button class="quick-btn" id="clearLogsBtn" style="padding: 2px 8px; font-size: 10px;">Clear</button>
+            </div>
+            <div class="terminal-log-list" id="terminalLogs">
+              <div class="log-entry">
+                <span class="log-time">00:00:00</span>
+                <span class="log-tag INFO">INIT</span>
+                <span class="log-msg">SynkCard Dashboard ready. Target: http://172.16.104.57:5000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- 4. Fixed Bottom Sync Bar (Mobile First) -->
+    <footer class="bottom-sync-bar" id="bottomSyncBar">
+      <div class="sync-status-summary">
+        <div class="sync-device-name">
+          <span class="led-dot" id="barStatusLed"></span>
+          <span id="barDeviceName">Jetson Orin (172.16.104.57)</span>
+        </div>
+        <div class="sync-time-sub" id="barSyncTime">Ready to sync</div>
+      </div>
+
+      <button class="btn-sync-action" id="syncToDisplayBtn">
+        <span class="btn-icon">📡</span>
+        <span id="syncBtnText">SYNC TO DISPLAY</span>
+      </button>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">Hardware Link Config</div>
+          <button class="icon-btn" id="closeSettingsBtn">✕</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="settingsBaseUrl">Jetson Orin Backend Base URL</label>
+          <input type="text" id="settingsBaseUrl" class="form-input" value="http://172.16.104.57:5000" placeholder="http://172.16.104.57:5000">
+          <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">
+            Expected endpoints: /api/status, /api/display/text, /api/display/image, /api/profile
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Quick IP Presets</label>
+          <div class="presets-scroller">
+            <button class="preset-chip" id="ipPresetJetson">172.16.104.57:5000</button>
+            <button class="preset-chip" id="ipPresetLocalhost">localhost:5000</button>
+            <button class="preset-chip" id="ipPresetLocal9999">localhost:9999</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Simulation Mode</label>
+          <div class="btn-toggle-group">
+            <button class="toggle-option active" id="mockModeOffBtn">Live Hardware (Jetson)</button>
+            <button class="toggle-option" id="mockModeOnBtn">Mock / Offline Demo</button>
+          </div>
+          <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 4px;">
+            Enable Mock Mode if Jetson Orin is currently unreachable to demo all UI animations and sync flows smoothly.
+          </span>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" id="testPingBtn">Test Connection</button>
+          <button class="btn-primary" id="saveSettingsBtn">Save & Connect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

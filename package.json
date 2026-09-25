@@ -1,0 +1,27 @@
+{
+  "name": "eink-emulator",
+  "version": "1.0.0",
+  "description": "This is a simple emulator of a 4.3 inch e-Paper display module developed by Waveshare.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kind-sketch/eink-emulator.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/Kind-sketch/eink-emulator/issues"
+  },
+  "homepage": "https://github.com/Kind-sketch/eink-emulator#readme",
+  "devDependencies": {
+    "vite": "^8.3.1"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}
